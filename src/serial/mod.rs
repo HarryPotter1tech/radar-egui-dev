@@ -4,7 +4,4 @@
 
 pub mod serialconfig;
 pub mod data_format;
-pub mod serial_receiver;
-pub mod serial_transmitter;
-pub mod serial_runningtime;
-pub mod serial_process;
+pub mod serial;

@@ -1,217 +1,414 @@
-use std::str;
-use std::bytes::Bytes;
+// ─── 命令ID (C++ #define 的 Rust 版) ───
+//
+// 字节序: 全部 LE (小端序)
+//   多字节字段统一用 from_le_bytes() 解析
+//   位域: u8 直接用 & mask >> shift
+pub const FRAME_HEADER_SOF: u8 = 0xA5;
 
+pub const GAME_STATE_CMD_ID: u16 = 0x0001;
+pub const GAME_RESULT_CMD_ID: u16 = 0x0002;
+pub const SITE_EVENT_CMD_ID: u16 = 0x0101;
+pub const DART_LAUNCH_CMD_ID: u16 = 0x0105;
+pub const RADAR_MARK_PROCESS_CMD_ID: u16 = 0x020C;
+pub const RADAR_AUTONOMOUS_DECISION_SYNC_CMD_ID: u16 = 0x020E;
+pub const ROBOT_INTERACTION_CMD_ID: u16 = 0x0301;
+pub const MINIMAP_RECEIVE_RADAR_CMD_ID: u16 = 0x0305;
+pub const SDR_ENEMY_ROBOT_POSITION_CMD_ID: u16 = 0x0A01;
+pub const SDR_ENEMY_ROBOT_BLOOD_CMD_ID: u16 = 0x0A02;
+pub const SDR_ENEMY_ROBOT_REMAINING_AMMO_CMD_ID: u16 = 0x0A03;
+pub const SDR_ENEMY_ROBOT_OVERALL_STATE_CMD_ID: u16 = 0x0A04;
+pub const SDR_ENEMY_ROBOT_GAIN_CMD_ID: u16 = 0x0A05;
+pub const SDR_JAMMING_KEY_CMD_ID: u16 = 0x0A06;
+
+// ─── 命令ID ───
+pub const GAME_STATE_DATA_LEN: usize = 11;
+pub const GAME_RESULT_DATA_LEN: usize = 1;
+pub const SITE_EVENT_DATA_LEN: usize = 4;
+pub const DART_LAUNCH_DATA_LEN: usize = 3;
+pub const RADAR_MARK_PROCESS_DATA_LEN: usize = 2;
+pub const RADAR_AUTONOMOUS_DECISION_SYNC_DATA_LEN: usize = 1;
+pub const ROBOT_INTERACTION_DATA_LEN: usize = 118;
+pub const MINIMAP_RECEIVE_RADAR_DATA_LEN: usize = 48;
+pub const SDR_ENEMY_ROBOT_POSITION_DATA_LEN: usize = 24;
+pub const SDR_ENEMY_ROBOT_BLOOD_DATA_LEN: usize = 12;
+pub const SDR_ENEMY_ROBOT_REMAINING_AMMO_DATA_LEN: usize = 10;
+pub const SDR_ENEMY_ROBOT_OVERALL_STATE_DATA_LEN: usize = 8;
+pub const SDR_ENEMY_ROBOT_GAIN_DATA_LEN: usize = 36;
+pub const SDR_JAMMING_KEY_DATA_LEN: usize = 6;
+
+pub const CMD_ID_TO_DATA_LEN: [(u16, usize); 14] = [
+    (GAME_STATE_CMD_ID, GAME_STATE_DATA_LEN),
+    (GAME_RESULT_CMD_ID, GAME_RESULT_DATA_LEN),
+    (SITE_EVENT_CMD_ID, SITE_EVENT_DATA_LEN),
+    (DART_LAUNCH_CMD_ID, DART_LAUNCH_DATA_LEN),
+    (RADAR_MARK_PROCESS_CMD_ID, RADAR_MARK_PROCESS_DATA_LEN),
+    (
+        RADAR_AUTONOMOUS_DECISION_SYNC_CMD_ID,
+        RADAR_AUTONOMOUS_DECISION_SYNC_DATA_LEN,
+    ),
+    (ROBOT_INTERACTION_CMD_ID, ROBOT_INTERACTION_DATA_LEN),
+    (MINIMAP_RECEIVE_RADAR_CMD_ID, MINIMAP_RECEIVE_RADAR_DATA_LEN),
+    (
+        SDR_ENEMY_ROBOT_POSITION_CMD_ID,
+        SDR_ENEMY_ROBOT_POSITION_DATA_LEN,
+    ),
+    (SDR_ENEMY_ROBOT_BLOOD_CMD_ID, SDR_ENEMY_ROBOT_BLOOD_DATA_LEN),
+    (
+        SDR_ENEMY_ROBOT_REMAINING_AMMO_CMD_ID,
+        SDR_ENEMY_ROBOT_REMAINING_AMMO_DATA_LEN,
+    ),
+    (
+        SDR_ENEMY_ROBOT_OVERALL_STATE_CMD_ID,
+        SDR_ENEMY_ROBOT_OVERALL_STATE_DATA_LEN,
+    ),
+    (SDR_ENEMY_ROBOT_GAIN_CMD_ID, SDR_ENEMY_ROBOT_GAIN_DATA_LEN),
+    (SDR_JAMMING_KEY_CMD_ID, SDR_JAMMING_KEY_DATA_LEN),
+];
+#[derive(Debug, Clone, Default)]
+pub struct SerialFrame {
+    pub frame_header_sof: u8,
+    pub frame_header_data_len: u16,
+    pub frame_header_seq: u8,
+    pub frame_header_crc8: u8,
+}
 // ─── 比赛状态与事件协议数据 (常规链路) ───
+// 包格式: [cmd_id:2 LE] [data_len:1] [data:N]
 
+// cmd_id = 0x0001, data_len = 11
+#[derive(Debug, Clone, Default)]
 pub struct GameStateData {
-    pub cmd_id: u16 = 0x0001,
-    pub data_length: u8 = 11,
-    pub data: [u8; data_length],
-    pub game_type: u8,          // data[0] bit 0-3   比赛类型
-    pub game_progress: u8,      // data[0] bit 4-7   当前比赛阶段
-    pub stage_remain_time: u16, // data[1..3] u16 BE  当前阶段剩余时间(秒)
-    pub sync_timestamp: u64,    // data[3..11] u64 BE  UNIX时间戳
+    /// data[0] bit 0-3  比赛类型
+    pub game_type: u8,
+    /// data[0] bit 4-7  当前比赛阶段
+    pub game_progress: u8,
+    /// data[1..3] u16 LE  当前阶段剩余时间(秒)
+    pub stage_remain_time: u16,
+    /// data[3..11] u64 LE  UNIX时间戳
+    pub sync_timestamp: u64,
 }
 
+// cmd_id = 0x0002, data_len = 1
+#[derive(Debug, Clone, Default)]
 pub struct GameResultData {
-    pub cmd_id: u16 = 0x0002,
-    pub data_length: u8 = 1,
-    pub data: [u8; data_length],
-    pub winner: u8,             // data[0]  获胜方
+    /// data[0]  获胜方
+    pub winner: u8,
 }
 
+// cmd_id = 0x0101, data_len = 4
+#[derive(Debug, Clone, Default)]
 pub struct SiteEventData {
-    pub cmd_id: u16 = 0x0101,
-    pub data_length: u8 = 4,
-    pub data: [u8; data_length],
-    pub supply_zone_status: u8,         // data[0] bit 0-2   补给区占领状态
-    pub energy_small_status: u8,        // data[0] bit 3-4   小能量机关状态 (0=未激活 1=已激活 2=正在激活)
-    pub energy_large_status: u8,        // data[0] bit 5-6   大能量机关状态 (0=未激活 1=已激活 2=正在激活)
-    pub central_highland_status: u8,    // data[0..1] bit 7-8  中央高地占领状态 (1=己方 2=对方)
-    pub trapezoid_highland_status: u8,  // data[1] bit 1-2   梯形高地占领状态 (1=已占领)
-    pub dart_hit_time: u16,             // data[1..3] bit 3-11 飞镖击中己方前哨站/基地时间 (0-420秒)
-    pub dart_hit_target: u8,            // data[2..3] bit 4-6  飞镖击中目标 (1=前哨站 2=基地固定 3=随机固定 4=随机移动 5=末端移动)
-    pub center_gain_status: u8,         // data[2..3] bit 7-8  中心增益点占领状态(RMUL) (0=未占 1=己方 2=对方 3=双方)
-    pub fortress_gain_status: u8,       // data[3] bit 1-2   堡垒增益点占领状态 (0=未占 1=己方 2=对方 3=双方)
-    pub outpost_gain_status: u8,        // data[3] bit 3-4   前哨站增益点占领状态 (0=未占 1=己方 2=对方)
-    pub base_gain_status: u8,           // data[3] bit 5     基地增益点占领状态 (1=已占领)
+    /// event_data bit 0-2  己方补给区占领状态
+    pub supply_zone_status: u8,
+    /// event_data bit 3-4  己方小能量机关状态 (0=未激活 1=已激活 2=正在激活)
+    pub energy_small_status: u8,
+    /// event_data bit 5-6  己方大能量机关状态 (0=未激活 1=已激活 2=正在激活)
+    pub energy_large_status: u8,
+    /// event_data bit 7-8  己方中央高地占领状态 (1=己方 2=对方)
+    pub central_highland_status: u8,
+    /// event_data bit 9-10  己方梯形高地占领状态 (1=已占领)
+    pub trapezoid_highland_status: u8,
+    /// event_data bit 11-19  对方飞镖最后击中己方前哨站/基地时间 (0-420秒)
+    pub dart_hit_time: u16,
+    /// event_data bit 20-22  对方飞镖最后击中目标 (1=前哨站 2=基地固定 3=随机固定 4=随机移动 5=末端移动)
+    pub dart_hit_target: u8,
+    /// event_data bit 23-24  中心增益点占领状态(RMUL) (0=未占 1=己方 2=对方 3=双方)
+    pub center_gain_status: u8,
+    /// event_data bit 25-26  己方堡垒增益点占领状态 (0=未占 1=己方 2=对方 3=双方)
+    pub fortress_gain_status: u8,
+    /// event_data bit 27-28  己方前哨站增益点占领状态 (0=未占 1=己方 2=对方)
+    pub outpost_gain_status: u8,
+    /// event_data bit 29  己方基地增益点占领状态 (1=已占领)
+    pub base_gain_status: u8,
 }
 
+// cmd_id = 0x0105, data_len = 3   飞镖发射相关数据
+#[derive(Debug, Clone, Default)]
 pub struct DartLaunchData {
-    pub cmd_id: u16 = 0x0104,
-    pub data_length: u8 = 3,
-    pub data: [u8; data_length],
-    pub level: u8,              // data[0]  判罚等级 (1=双方黄牌 2=黄牌 3=红牌 4=判负)
-    pub offending_robot_id: u8, // data[1]  违规机器人ID (判负/双方黄牌时为0)
-    pub count: u8,              // data[2]  对应等级违规次数 (开局为0)
+    /// data[0]  己方飞镖发射剩余时间(秒)
+    pub dart_remaining_time: u8,
+    /// dart_info bit 0-2  最近一次飞镖击中目标 (0=默认 1=前哨站 2=基地固定 3=随机固定 4=随机移动 5=末端移动)
+    pub dart_hit_target: u8,
+    /// dart_info bit 3-5  对方目标累计被击中次数 (0-4)
+    pub dart_hit_count: u8,
+    /// dart_info bit 6-8  飞镖选定打击目标 (0=未选定/前哨站 1=基地固定 2=随机固定 3=随机移动 4=末端移动)
+    pub dart_selected_target: u8,
 }
 
+// cmd_id = 0x020C, data_len = 2   雷达标记进度数据
+// mark_progress 位域: 对方机器人被标记进度≥100 时为1; 己方机器人被标记进度≥50 时为1
+#[derive(Debug, Clone, Default)]
 pub struct RadarMarkProcessData {
-    pub cmd_id: u16 = 0x0105,
-    pub data_length: u8 = 3,
-    pub data: [u8; data_length],
-    pub dart_remaining_time: u8,  // data[0]  飞镖发射剩余时间(秒)
-    pub dart_hit_target: u8,      // data[1..2] bit 0-2  最近一次飞镖击中目标 (1=前哨站 2=基地固定 3=随机固定 4=随机移动 5=末端移动)
-    pub dart_hit_count: u8,       // data[1..2] bit 3-5  对方目标累计被击中次数 (0-4)
-    pub dart_selected_target: u8, // data[1..2] bit 6-8  飞镖选定打击目标 (0=未选定/前哨站 1=基地固定 2=随机固定 3=随机移动 4=末端移动)
+    /// mark_progress bit 0  对方英雄机器人易伤情况
+    pub opponent_hero_vulnerable: u8,
+    /// mark_progress bit 1  对方工程机器人易伤情况
+    pub opponent_engineer_vulnerable: u8,
+    /// mark_progress bit 2  对方3号步兵机器人易伤情况
+    pub opponent_infantry_3_vulnerable: u8,
+    /// mark_progress bit 3  对方4号步兵机器人易伤情况
+    pub opponent_infantry_4_vulnerable: u8,
+    /// mark_progress bit 4  对方空中机器人特殊标识情况
+    pub opponent_aerial_marked: u8,
+    /// mark_progress bit 5  对方哨兵机器人易伤情况
+    pub opponent_sentry_vulnerable: u8,
+    /// mark_progress bit 6  己方英雄机器人特殊标识情况
+    pub ally_hero_marked: u8,
+    /// mark_progress bit 7  己方工程机器人特殊标识情况
+    pub ally_engineer_marked: u8,
+    /// mark_progress bit 8  己方3号步兵机器人特殊标识情况
+    pub ally_infantry_3_marked: u8,
+    /// mark_progress bit 9  己方4号步兵机器人特殊标识情况
+    pub ally_infantry_4_marked: u8,
+    /// mark_progress bit 10  己方空中机器人特殊标识情况
+    pub ally_aerial_marked: u8,
+    /// mark_progress bit 11  己方哨兵机器人特殊标识情况
+    pub ally_sentry_marked: u8,
 }
 
+// cmd_id = 0x020E, data_len = 1
+#[derive(Debug, Clone, Default)]
 pub struct RadarAutonomousDecisionSyncData {
-    pub cmd_id: u16 = 0x020E,
-    pub data_length: u8 = 1,
-    pub data: [u8; data_length],
-    pub double_weakness_chance: u8, // data[0] bit 0-1  双倍易伤机会次数 (0-2)
-    pub double_weakness_active: u8, // data[0] bit 2    对方是否正在被触发双倍易伤 (0=否 1=是)
-    pub encryption_level: u8,       // data[0] bit 3-4  己方加密等级/干扰波难度 (1-3)
-    pub key_modifiable: u8,         // data[0] bit 5    当前是否可修改密钥 (1=可修改)
+    /// radar_info bit 0-1  双倍易伤机会次数 (0-2)
+    pub double_weakness_chance: u8,
+    /// radar_info bit 2  对方是否正在被触发双倍易伤 (0=否 1=是)
+    pub double_weakness_active: u8,
+    /// radar_info bit 3-4  己方加密等级/干扰波难度 (1-3)
+    pub encryption_level: u8,
+    /// radar_info bit 5  当前是否可修改密钥 (1=可修改)
+    pub key_modifiable: u8,
 }
 
+// cmd_id = 0x0301, data_len = 118
+#[derive(Debug, Clone)]
 pub struct RobotInteractionData {
-    pub cmd_id: u16 = 0x0301,
-    pub data_length: u8 = 118,
-    pub data: [u8; data_length],
-    pub data_cmd_id: u16,   // data[0..2] u16 BE  子内容ID
-    pub sender_id: u16,     // data[2..4] u16 BE  发送者ID
-    pub receiver_id: u16,   // data[4..6] u16 BE  接收者ID
-    pub user_data: [u8; 112], // data[6..118]     内容数据段 (最大112字节)
+    /// data[0..2] u16 LE  子内容ID
+    pub data_cmd_id: u16,
+    /// data[2..4] u16 LE  发送者ID
+    pub sender_id: u16,
+    /// data[4..6] u16 LE  接收者ID
+    pub receiver_id: u16,
+    /// data[6..118]     内容数据段 (最大112字节)
+    pub user_data: [u8; 112],
 }
 
+impl Default for RobotInteractionData {
+    fn default() -> Self {
+        Self {
+            data_cmd_id: 0,
+            sender_id: 0,
+            receiver_id: 0,
+            user_data: [0u8; 112],
+        }
+    }
+}
+
+// cmd_id = 0x0305, data_len = 48
+#[derive(Debug, Clone, Default)]
 pub struct MinimapReceiveRadarData {
-    pub cmd_id: u16 = 0x0305,
-    pub data_length: u8 = 48,
-    pub data: [u8; data_length],
-    // 对方机器人坐标
-    pub opponent_hero_x: i16,       // data[0..2] i16 BE  对方英雄 x (cm)
-    pub opponent_hero_y: i16,       // data[2..4] i16 BE  对方英雄 y (cm)
-    pub opponent_engineer_x: i16,   // data[4..6] i16 BE  对方工程 x (cm)
-    pub opponent_engineer_y: i16,   // data[6..8] i16 BE  对方工程 y (cm)
-    pub opponent_infantry_3_x: i16, // data[8..10] i16 BE 对方3号步兵 x (cm)
-    pub opponent_infantry_3_y: i16, // data[10..12] i16 BE 对方3号步兵 y (cm)
-    pub opponent_infantry_4_x: i16, // data[12..14] i16 BE 对方4号步兵 x (cm)
-    pub opponent_infantry_4_y: i16, // data[14..16] i16 BE 对方4号步兵 y (cm)
-    pub opponent_aerial_x: i16,     // data[16..18] i16 BE 对方空中 x (cm)
-    pub opponent_aerial_y: i16,     // data[18..20] i16 BE 对方空中 y (cm)
-    pub opponent_sentry_x: i16,     // data[20..22] i16 BE 对方哨兵 x (cm)
-    pub opponent_sentry_y: i16,     // data[22..24] i16 BE 对方哨兵 y (cm)
-    // 己方机器人坐标
-    pub ally_hero_x: i16,           // data[24..26] i16 BE 己方英雄 x (cm)
-    pub ally_hero_y: i16,           // data[26..28] i16 BE 己方英雄 y (cm)
-    pub ally_engineer_x: i16,       // data[28..30] i16 BE 己方工程 x (cm)
-    pub ally_engineer_y: i16,       // data[30..32] i16 BE 己方工程 y (cm)
-    pub ally_infantry_3_x: i16,     // data[32..34] i16 BE 己方3号步兵 x (cm)
-    pub ally_infantry_3_y: i16,     // data[34..36] i16 BE 己方3号步兵 y (cm)
-    pub ally_infantry_4_x: i16,     // data[36..38] i16 BE 己方4号步兵 x (cm)
-    pub ally_infantry_4_y: i16,     // data[38..40] i16 BE 己方4号步兵 y (cm)
-    pub ally_aerial_x: i16,         // data[40..42] i16 BE 己方空中 x (cm)
-    pub ally_aerial_y: i16,         // data[42..44] i16 BE 己方空中 y (cm)
-    pub ally_sentry_x: i16,         // data[44..46] i16 BE 己方哨兵 x (cm)
-    pub ally_sentry_y: i16,         // data[46..48] i16 BE 己方哨兵 y (cm)
+    pub opponent_hero_x: u16,
+    pub opponent_hero_y: u16,
+    pub opponent_engineer_x: u16,
+    pub opponent_engineer_y: u16,
+    pub opponent_infantry_3_x: u16,
+    pub opponent_infantry_3_y: u16,
+    pub opponent_infantry_4_x: u16,
+    pub opponent_infantry_4_y: u16,
+    pub opponent_aerial_x: u16,
+    pub opponent_aerial_y: u16,
+    pub opponent_sentry_x: u16,
+    pub opponent_sentry_y: u16,
+    pub ally_hero_x: u16,
+    pub ally_hero_y: u16,
+    pub ally_engineer_x: u16,
+    pub ally_engineer_y: u16,
+    pub ally_infantry_3_x: u16,
+    pub ally_infantry_3_y: u16,
+    pub ally_infantry_4_x: u16,
+    pub ally_infantry_4_y: u16,
+    pub ally_aerial_x: u16,
+    pub ally_aerial_y: u16,
+    pub ally_sentry_x: u16,
+    pub ally_sentry_y: u16,
 }
 
 // ─── 雷达无线链路数据 (SDR) ───
 
-pub struct SDR_EnemyRobotPositionData {
-    pub cmd_id: u16 = 0x0A01,
-    pub data_length: u8 = 24,
-    pub data: [u8; data_length],
-    pub hero_x: i16,        // data[0..2] i16 BE  对方英雄 x (cm)
-    pub hero_y: i16,        // data[2..4] i16 BE  对方英雄 y (cm)
-    pub engineer_x: i16,    // data[4..6] i16 BE  对方工程 x (cm)
-    pub engineer_y: i16,    // data[6..8] i16 BE  对方工程 y (cm)
-    pub infantry_3_x: i16,  // data[8..10] i16 BE 对方3号步兵 x (cm)
-    pub infantry_3_y: i16,  // data[10..12] i16 BE 对方3号步兵 y (cm)
-    pub infantry_4_x: i16,  // data[12..14] i16 BE 对方4号步兵 x (cm)
-    pub infantry_4_y: i16,  // data[14..16] i16 BE 对方4号步兵 y (cm)
-    pub aerial_x: i16,      // data[16..18] i16 BE 对方空中 x (cm)
-    pub aerial_y: i16,      // data[18..20] i16 BE 对方空中 y (cm)
-    pub sentry_x: i16,      // data[20..22] i16 BE 对方哨兵 x (cm)
-    pub sentry_y: i16,      // data[22..24] i16 BE 对方哨兵 y (cm)
+// cmd_id = 0x0A01, data_len = 24
+#[derive(Debug, Clone, Default)]
+pub struct SdrEnemyRobotPositionData {
+    /// data[0..2] i16 LE  对方英雄 x (cm)
+    pub hero_x: i16,
+    /// data[2..4] i16 LE  对方英雄 y (cm)
+    pub hero_y: i16,
+    /// data[4..6] i16 LE  对方工程 x (cm)
+    pub engineer_x: i16,
+    /// data[6..8] i16 LE  对方工程 y (cm)
+    pub engineer_y: i16,
+    /// data[8..10] i16 LE 对方3号步兵 x (cm)
+    pub infantry_3_x: i16,
+    /// data[10..12] i16 LE 对方3号步兵 y (cm)
+    pub infantry_3_y: i16,
+    /// data[12..14] i16 LE 对方4号步兵 x (cm)
+    pub infantry_4_x: i16,
+    /// data[14..16] i16 LE 对方4号步兵 y (cm)
+    pub infantry_4_y: i16,
+    /// data[16..18] i16 LE 对方空中 x (cm)
+    pub aerial_x: i16,
+    /// data[18..20] i16 LE 对方空中 y (cm)
+    pub aerial_y: i16,
+    /// data[20..22] i16 LE 对方哨兵 x (cm)
+    pub sentry_x: i16,
+    /// data[22..24] i16 LE 对方哨兵 y (cm)
+    pub sentry_y: i16,
 }
 
-pub struct SDR_EnemyRobotBloodData {
-    pub cmd_id: u16 = 0x0A02,
-    pub data_length: u8 = 12,
-    pub data: [u8; data_length],
-    pub hero_blood: u16,        // data[0..2] u16 BE  对方英雄血量
-    pub engineer_blood: u16,    // data[2..4] u16 BE  对方工程血量
-    pub infantry_3_blood: u16,  // data[4..6] u16 BE  对方3号步兵血量
-    pub infantry_4_blood: u16,  // data[6..8] u16 BE  对方4号步兵血量
-    pub reserved: u16,          // data[8..10] u16 BE 空中机器人(保留)
-    pub sentry_blood: u16,      // data[10..12] u16 BE 对方哨兵血量
+// cmd_id = 0x0A02, data_len = 12
+#[derive(Debug, Clone, Default)]
+pub struct SdrEnemyRobotBloodData {
+    /// data[0..2] u16 LE  对方英雄血量
+    pub hero_blood: u16,
+    /// data[2..4] u16 LE  对方工程血量
+    pub engineer_blood: u16,
+    /// data[4..6] u16 LE  对方3号步兵血量
+    pub infantry_3_blood: u16,
+    /// data[6..8] u16 LE  对方4号步兵血量
+    pub infantry_4_blood: u16,
+    /// data[8..10] u16 LE 空中机器人(保留)
+    pub reserved: u16,
+    /// data[10..12] u16 LE 对方哨兵血量
+    pub sentry_blood: u16,
 }
 
-pub struct SDR_EnemyRobotRemainingAmmoData {
-    pub cmd_id: u16 = 0x0A03,
-    pub data_length: u8 = 10,
-    pub data: [u8; data_length],
-    pub hero_ammo: u16,        // data[0..2] u16 BE  对方英雄允许发弹量
-    pub infantry_3_ammo: u16,  // data[2..4] u16 BE  对方3号步兵允许发弹量 (含堡垒储备)
-    pub infantry_4_ammo: u16,  // data[4..6] u16 BE  对方4号步兵允许发弹量
-    pub aerial_ammo: u16,      // data[6..8] u16 BE  对方空中允许发弹量
-    pub sentry_ammo: u16,      // data[8..10] u16 BE 对方哨兵允许发弹量
+/// cmd_id = 0x0A03, data_len = 10
+#[derive(Debug, Clone, Default)]
+pub struct SdrEnemyRobotRemainingAmmoData {
+    /// data[0..2] u16 LE  对方英雄允许发弹量
+    pub hero_ammo: u16,
+    /// data[2..4] u16 LE  对方3号步兵允许发弹量 (含堡垒储备)
+    pub infantry_3_ammo: u16,
+    /// data[4..6] u16 LE  对方4号步兵允许发弹量
+    pub infantry_4_ammo: u16,
+    /// data[6..8] u16 LE  对方空中允许发弹量
+    pub aerial_ammo: u16,
+    /// data[8..10] u16 LE 对方哨兵允许发弹量
+    pub sentry_ammo: u16,
 }
 
-pub struct SDR_EnemyRobotOverallStateData {
-    pub cmd_id: u16 = 0x0A04,
-    pub data_length: u8 = 8,
-    pub data: [u8; data_length],
-    pub remaining_gold: u16,         // data[0..2] u16 BE  对方剩余金币数
-    pub total_gold: u16,             // data[2..4] u16 BE  对方累计总金币数
-    pub supply_zone_status: u8,      // data[4] bit 0     对方补给区占领状态
-    pub central_highland_status: u8, // data[4] bit 1-2   对方中央高地占领状态 (1=对方 2=己方)
-    pub trapezoid_highland_status: u8, // data[4] bit 3   对方梯形高地占领状态 (1=已占领)
-    pub fortress_gain_status: u8,    // data[4] bit 4-5   对方堡垒增益点占领状态 (0=未占 1=对方 2=己方 3=双方)
-    pub outpost_gain_status: u8,     // data[4] bit 6-7   对方前哨站增益点占领状态 (0=未占 1=对方 2=己方)
-    pub base_gain_status: u8,        // data[5] bit 0     对方基地增益点占领状态 (1=已占领)
-    pub tunnel_1_status: u8,         // data[5] bit 1     隧道1 (靠近对方飞坡前) 对方机器人检测 (1=检测到)
-    pub tunnel_2_status: u8,         // data[5] bit 2     隧道2 (靠近对方飞坡后) 对方机器人检测 (1=检测到)
-    pub tunnel_3_status: u8,         // data[5] bit 3     隧道3 (靠近己方飞坡前) 对方机器人检测 (1=检测到)
-    pub tunnel_4_status: u8,         // data[5] bit 4     隧道4 (靠近己方飞坡后) 对方机器人检测 (1=检测到)
-    pub highland_upper_status: u8,   // data[5] bit 5     高地(上部) 对方机器人检测 (1=检测到)
-    pub ramp_rear_status: u8,        // data[5] bit 6     飞坡(后部) 对方机器人检测 (1=检测到)
-    pub road_upper_status: u8,       // data[5] bit 7     公路(上部) 对方机器人检测 (1=检测到)
+// cmd_id = 0x0A04, data_len = 8
+#[derive(Debug, Clone, Default)]
+pub struct SdrEnemyRobotOverallStateData {
+    /// data[0..2] u16 LE  对方剩余金币数
+    pub remaining_gold: u16,
+    /// data[2..4] u16 LE  对方累计总金币数
+    pub total_gold: u16,
+    /// data[4] bit 0     对方补给区占领状态
+    pub supply_zone_status: u8,
+    /// data[4] bit 1-2   对方中央高地占领状态 (1=对方 2=己方)
+    pub central_highland_status: u8,
+    /// data[4] bit 3     对方梯形高地占领状态 (1=已占领)
+    pub trapezoid_highland_status: u8,
+    /// data[4] bit 4-5   对方堡垒增益点占领状态 (0=未占 1=对方 2=己方 3=双方)
+    pub fortress_gain_status: u8,
+    /// data[4] bit 6-7   对方前哨站增益点占领状态 (0=未占 1=对方 2=己方)
+    pub outpost_gain_status: u8,
+    /// data[5] bit 0     对方基地增益点占领状态 (1=已占领)
+    pub base_gain_status: u8,
+    /// data[5] bit 1     隧道1 (靠近对方飞坡前) 对方机器人检测 (1=检测到)
+    pub tunnel_1_status: u8,
+    /// data[5] bit 2     隧道2 (靠近对方飞坡后) 对方机器人检测 (1=检测到)
+    pub tunnel_2_status: u8,
+    /// data[5] bit 3     隧道3 (靠近己方飞坡前) 对方机器人检测 (1=检测到)
+    pub tunnel_3_status: u8,
+    /// data[5] bit 4     隧道4 (靠近己方飞坡后) 对方机器人检测 (1=检测到)
+    pub tunnel_4_status: u8,
+    /// data[5] bit 5     高地(上部) 对方机器人检测 (1=检测到)
+    pub highland_upper_status: u8,
+    /// data[5] bit 6     飞坡(后部) 对方机器人检测 (1=检测到)
+    pub ramp_rear_status: u8,
+    /// data[5] bit 7     公路(上部) 对方机器人检测 (1=检测到)
+    pub road_upper_status: u8,
 }
 
-pub struct SDR_EnemyRobotGainData {
-    pub cmd_id: u16 = 0x0A05,
-    pub data_length: u8 = 36,
-    pub data: [u8; data_length],
-    // 英雄机器人
-    pub hero_hp_recovery: u8,               // data[0]         回血增益 (百分比)
-    pub hero_cooling_acceleration: u16,      // data[1..3] u16 LE 射击热量冷却增益 (直接值)
-    pub hero_defence: u8,                   // data[3]         防御增益 (百分比)
-    pub hero_negative_defence: u8,           // data[4]         负防御增益 (百分比)
-    pub hero_attack: u16,                    // data[5..7] u16 LE 攻击增益 (百分比)
-    // 工程机器人
-    pub engineer_hp_recovery: u8,            // data[7]         回血增益 (百分比)
-    pub engineer_cooling_acceleration: u16,   // data[8..10] u16 LE 射击热量冷却增益 (直接值)
-    pub engineer_defence: u8,                // data[10]        防御增益 (百分比)
-    pub engineer_negative_defence: u8,        // data[11]        负防御增益 (百分比)
-    pub engineer_attack: u16,                // data[12..14] u16 LE 攻击增益 (百分比)
-    // 3号步兵机器人
-    pub infantry_3_hp_recovery: u8,          // data[14]        回血增益 (百分比)
-    pub infantry_3_cooling_acceleration: u16, // data[15..17] u16 LE 射击热量冷却增益 (直接值)
-    pub infantry_3_defence: u8,              // data[17]        防御增益 (百分比)
-    pub infantry_3_negative_defence: u8,      // data[18]        负防御增益 (百分比)
-    pub infantry_3_attack: u16,              // data[19..21] u16 LE 攻击增益 (百分比)
-    // 4号步兵机器人
-    pub infantry_4_hp_recovery: u8,          // data[21]        回血增益 (百分比)
-    pub infantry_4_cooling_acceleration: u16, // data[22..24] u16 LE 射击热量冷却增益 (直接值)
-    pub infantry_4_defence: u8,              // data[24]        防御增益 (百分比)
-    pub infantry_4_negative_defence: u8,      // data[25]        负防御增益 (百分比)
-    pub infantry_4_attack: u16,              // data[26..28] u16 LE 攻击增益 (百分比)
-    // 哨兵机器人
-    pub sentry_hp_recovery: u8,              // data[28]        回血增益 (百分比)
-    pub sentry_cooling_acceleration: u16,     // data[29..31] u16 LE 射击热量冷却增益 (直接值)
-    pub sentry_defence: u8,                  // data[31]        防御增益 (百分比)
-    pub sentry_negative_defence: u8,          // data[32]        负防御增益 (百分比)
-    pub sentry_attack: u16,                  // data[33..35] u16 LE 攻击增益 (百分比)
-    pub sentry_posture: u8,                  // data[35]        哨兵姿态 (1=进攻 2=防御 3=移动)
+// cmd_id = 0x0A05, data_len = 36
+// 每机器人增益: [hp_recovery(1) cooling(2 LE) defense(1) neg_defense(1) attack(2 LE)] = 7字节
+// 5机器人 + sentinel_posture(1) = 36 字节
+#[derive(Debug, Clone, Default)]
+pub struct SdrEnemyRobotGainData {
+    /// data[0]         回血增益 (百分比)
+    pub hero_hp_recovery: u8,
+    /// data[1..3] u16 LE 射击热量冷却增益 (直接值)
+    pub hero_cooling_acceleration: u16,
+    /// data[3]         防御增益 (百分比)
+    pub hero_defence: u8,
+    /// data[4]         负防御增益 (百分比)
+    pub hero_negative_defence: u8,
+    /// data[5..7] u16 LE 攻击增益 (百分比)
+    pub hero_attack: u16,
+    /// data[7]         回血增益 (百分比)
+    pub engineer_hp_recovery: u8,
+    /// data[8..10] u16 LE 射击热量冷却增益 (直接值)
+    pub engineer_cooling_acceleration: u16,
+    /// data[10]        防御增益 (百分比)
+    pub engineer_defence: u8,
+    /// data[11]        负防御增益 (百分比)
+    pub engineer_negative_defence: u8,
+    /// data[12..14] u16 LE 攻击增益 (百分比)
+    pub engineer_attack: u16,
+    /// data[14]        回血增益 (百分比)
+    pub infantry_3_hp_recovery: u8,
+    /// data[15..17] u16 LE 射击热量冷却增益 (直接值)
+    pub infantry_3_cooling_acceleration: u16,
+    /// data[17]        防御增益 (百分比)
+    pub infantry_3_defence: u8,
+    /// data[18]        负防御增益 (百分比)
+    pub infantry_3_negative_defence: u8,
+    /// data[19..21] u16 LE 攻击增益 (百分比)
+    pub infantry_3_attack: u16,
+    /// data[21]        回血增益 (百分比)
+    pub infantry_4_hp_recovery: u8,
+    /// data[22..24] u16 LE 射击热量冷却增益 (直接值)
+    pub infantry_4_cooling_acceleration: u16,
+    /// data[24]        防御增益 (百分比)
+    pub infantry_4_defence: u8,
+    /// data[25]        负防御增益 (百分比)
+    pub infantry_4_negative_defence: u8,
+    /// data[26..28] u16 LE 攻击增益 (百分比)
+    pub infantry_4_attack: u16,
+    /// data[28]        回血增益 (百分比)
+    pub sentry_hp_recovery: u8,
+    /// data[29..31] u16 LE 射击热量冷却增益 (直接值)
+    pub sentry_cooling_acceleration: u16,
+    /// data[31]        防御增益 (百分比)
+    pub sentry_defence: u8,
+    /// data[32]        负防御增益 (百分比)
+    pub sentry_negative_defence: u8,
+    /// data[33..35] u16 LE 攻击增益 (百分比)
+    pub sentry_attack: u16,
+    /// data[35]        哨兵姿态 (1=进攻 2=防御 3=移动)
+    pub sentry_posture: u8,
 }
 
-pub struct SDR_JammingKeyData {
-    pub cmd_id: u16 = 0x0A06,
-    pub data_length: u8 = 6,
-    pub data: [u8; data_length],
-    pub key: [u8; 6], // data[0..6]  干扰密钥 (ASCII编码 字母或数字)
+// cmd_id = 0x0A06, data_len = 6
+#[derive(Debug, Clone, Default)]
+pub struct SdrJammingKeyData {
+    /// data[0..6]  干扰密钥 (ASCII编码 字母或数字)
+    pub key: [u8; 6],
+}
+
+// 总协议数据结构
+#[derive(Debug, Clone, Default)]
+pub struct SerialProtocolData {
+    pub game_state_data: GameStateData,
+    pub game_result_data: GameResultData,
+    pub site_event_data: SiteEventData,
+    pub dart_launch_data: DartLaunchData,
+    pub radar_mark_process_data: RadarMarkProcessData,
+    pub radar_autonomous_decision_sync_data: RadarAutonomousDecisionSyncData,
+    pub robot_interaction_data: RobotInteractionData,
+    pub minimap_receive_radar_data: MinimapReceiveRadarData,
+    pub sdr_enemy_robot_position_data: SdrEnemyRobotPositionData,
+    pub sdr_enemy_robot_blood_data: SdrEnemyRobotBloodData,
+    pub sdr_enemy_robot_remaining_ammo_data: SdrEnemyRobotRemainingAmmoData,
+    pub sdr_enemy_robot_overall_state_data: SdrEnemyRobotOverallStateData,
+    pub sdr_enemy_robot_gain_data: SdrEnemyRobotGainData,
+    pub sdr_jamming_key_data: SdrJammingKeyData,
 }
