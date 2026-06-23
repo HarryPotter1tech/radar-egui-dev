@@ -13,11 +13,7 @@ pub fn serial_package(cmd_id: u16, data: Vec<u8>) -> SerialFrame {
     };
     frame_header.frame_header_crc8 = {
         let mut header_bytes = frame_header.to_bytes().unwrap();
-        if let Ok(crc8) = serial_crc::append_crc8(&mut header_bytes) {
-            crc8
-        } else {
-            0
-        }
+        serial_crc::append_crc8(&mut header_bytes).unwrap_or_default()
     };
     let mut package = SerialFrame {
         frame_header,
@@ -27,11 +23,7 @@ pub fn serial_package(cmd_id: u16, data: Vec<u8>) -> SerialFrame {
     };
     package.frame_crc16 = {
         let mut package_bytes = package.to_bytes().unwrap();
-        if let Ok(crc16) = serial_crc::append_crc16(&mut package_bytes) {
-            crc16
-        } else {
-            0
-        }
+        serial_crc::append_crc16(&mut package_bytes).unwrap_or_default()
     };
     package
 }

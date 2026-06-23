@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 
 pub mod data_format;
+#[allow(clippy::module_inception)]
 pub mod serial;
 pub mod serial_package;
 pub mod serial_parser;
