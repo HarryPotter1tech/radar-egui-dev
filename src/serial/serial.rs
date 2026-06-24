@@ -36,6 +36,11 @@ impl Serial {
         self.serial_port.write_all(data)?;
         Ok(())
     }
+    pub fn clone_serial_port(&self) -> std::io::Result<Self> {
+        Ok(Self {
+            serial_port: self.serial_port.try_clone()?,
+        })
+    }
 }
 
 pub fn start_receiver(mut serial: Serial) -> thread::JoinHandle<()> {
