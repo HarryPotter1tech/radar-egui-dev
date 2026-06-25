@@ -1,8 +1,9 @@
 mod app;
 mod laser;
-mod radar;
-mod rerun_viz;
+mod pointcloud;
+mod rerun_visualizer;
 mod runtime;
+mod sdr;
 mod serial;
 mod services;
 mod state;
