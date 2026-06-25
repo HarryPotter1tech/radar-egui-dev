@@ -6,7 +6,8 @@
 
 radar-egui 是比赛系统的统一操作面板：
 
-- **Radar 标签**：TCP 接入 SDR 信号流，实时显示 RobotMaster 战场状态
+- **Radar 标签**：场地点云 3D 可视化，通过 Rerun 引擎渲染，共享内存 `/pointcloud_frame` 读取
+- **SDR 标签**：TCP 接入 SDR 信号流，实时显示 RobotMaster 战场状态
 - **Laser 标签**：UDP 接收激光引导观测数据，共享内存渲染视频画面
 - **进程控制**：一键启动 SDR 桥接、laser_guidance 守护进程、Unity RADAR
 - **开局配置**：敌方颜色选择、推流/内录开关，启动时自动同步到 daemon
@@ -18,6 +19,8 @@ radar-egui 是比赛系统的统一操作面板：
 - 中文字体：LXGW WenKai Mono GB Screen、JetBrainsMono Nerd Font、Maple Mono
 - SDR 数据源运行在 `127.0.0.1:2000`
 - laser_guidance 已构建（UDP :5001 + 共享内存 `/laser_frame`）
+- Rerun viewer 已安装（`cargo install rerun-cli --locked` 或 `pip install rerun-sdk`）
+- 点云数据源写入 `/pointcloud_frame`（见 `docs/pointcloud-producer-spec.md`）
 
 ## 一键部署
 
@@ -41,8 +44,8 @@ cd ~/radar
 
 ## UI 布局
 
-- **左侧模式栏**：Radar / Laser 切换、深浅色主题、数据统计
-- **中央主舞台**：Radar 小地图（拖拽/缩放），Laser 视频画面（16:9）
+- **左侧模式栏**：Radar / SDR / Laser 切换、深浅色主题、数据统计
+- **中央主舞台**：Radar 点云状态面板，SDR 小地图（拖拽/缩放），Laser 视频画面（16:9）
 - **Laser 右侧面板**：
   - 数据源 — UDP 连接状态与重连
   - 脚本控制 — 敌方颜色下拉、推流/内录复选框、laser_guidance 启动按钮
