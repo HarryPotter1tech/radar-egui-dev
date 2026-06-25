@@ -126,48 +126,77 @@ MIT
 
 ```
 src/
-├── main.rs                  # 入口，eframe 窗口初始化
-├── app.rs                   # RadarApp 顶层状态与 update 主循环
-├── app/
-│   ├── assets.rs            # 字体 / 贴图加载
-│   ├── connection.rs        # Radar 连接状态与在线判定
-│   ├── theme_apply.rs       # 主题切换与 egui Visuals 应用
-│   ├── video_texture.rs     # Laser 视频纹理缓存（持久 TextureHandle + RGBA 复用）
-│   └── view.rs              # Radar / Laser 侧栏与主舞台 UI
-├── runtime/
-│   └── mod.rs               # Radar TCP / Laser UDP / Video SHM 后台任务生命周期
-├── services/
-│   ├── mod.rs
-│   └── process_control.rs   # 外部进程控制与 FIFO 命令编排
-├── state_snapshots.rs       # UI 每帧只读快照（Radar / Laser observation）
-├── protocol.rs              # RoboMasterSignalInfo 结构体 + 二进制解析器
-├── laser_protocol.rs        # LaserObservation UDP 协议解析
-├── tcp_client.rs            # SDR 信号流 TCP 接收
-├── udp_client.rs            # laser_guidance 观测数据 UDP 接收
-├── video_stream.rs          # /laser_frame 共享内存视频帧读取
-├── script_runner.rs         # Laser / SDR / Unity 进程原子启停实现
-├── rerun_viz.rs             # Rerun 3D 可视化集成（可选）
-├── theme.rs                 # Catppuccin 风格配色
-└── widgets/
-    ├── mod.rs               # 重导出
-    ├── minimap.rs           # 2D 战场小地图（消费 RadarSnapshot）
-    ├── panels.rs            # 血量/弹药/经济/增益面板（消费 RadarSnapshot）
-    └── laser_panel.rs       # Laser 主舞台与分析面板渲染（消费 observation + 纹理）
+├── main.rs
+├── app.rs / app/                    # 顶层状态、UI 视图、主题、视频纹理
+├── runtime/                         # 后台线程 / Tokio runtime 生命周期
+├── services/                        # 进程控制、FIFO 命令编排
+├── state.rs                         # 全局共享状态
+├── theme.rs                         # Catppuccin 配色
+├── rerun_viz.rs                     # Rerun 3D 可视化（可选）
+├── widgets/                         # egui 组件：小地图、面板、Laser 视图
+│
+├── serial/                          # 串口协议层
+│   ├── data_format.rs               # 14 个协议结构体 + deku 位域注解
+│   ├── serial_parser.rs             # 滑动窗口 cmd_id 扫描 + 12 个 match 分支
+│   ├── serial_package.rs            # 组帧发送 (SerialFrame + RobotInteractionData)
+│   ├── serial.rs                    # 串口封装 (try_clone 并发收发)
+│   ├── robot_interaction_id.rs      # DeviceId 枚举 (22 变体)
+│   ├── serial_crc.rs                # CRC8/CRC16 校验
+│   └── serialconfig.rs              # 串口配置
+│
+├── zmq/                             # ZMQ 订阅层
+│   ├── sdr_zmq.rs                   # SDR 无线链路 SUB (0x0A01–0x0A06)
+│   ├── laser_zmq.rs                 # Laser 观测数据 SUB
+│   └── location_lidar_zmq.rs        # 位置/雷达 SUB
+│
+├── laser/                           # Laser 协议与视频
+│   ├── protocol.rs                  # LaserObservation UDP 解析
+│   └── video.rs                     # 共享内存视频帧读取
+│
+└── radar/                           # Radar 协议
+    └── protocol.rs                  # RoboMasterSignalInfo + 二进制解析器
 ```
 
-### 当前内部边界
+## 数据包结构
 
-- `app.rs` 只保留顶层应用状态和 `update()` 驱动，不再直接管理全部细节。
-- `runtime/` 负责后台线程 / Tokio runtime 的创建与重连生命周期。
-- `services/process_control.rs` 负责脚本控制、Start All / Stop All 和 FIFO 命令发送。
-- `state_snapshots.rs` 把共享状态转换成每帧只读快照，避免 widget 自己反复 `lock + clone`。
-- `app/video_texture.rs` 把 Laser 视频纹理缓存提升到 app 层，避免每帧重新 `load_texture()`。
+### 常规链路 (串口, parser 已接入)
+
+| cmd_id | 名称 | 字段 | 字节数 |
+|--------|------|------|--------|
+| 0x0001 | 比赛状态 | game_type(4b) + game_progress(4b) + remain_time(u16) + unix(u64) | 11 |
+| 0x0002 | 比赛结果 | winner(u8) | 1 |
+| 0x0101 | 场地事件 | 14 个位域字段 (补给站/能量机关/高地/增益点/飞镖击中) | 4 |
+| 0x0105 | 飞镖发射 | remain_time(u8) + hit_target(3b) + hit_count(3b) + selected(3b) | 3 |
+| 0x020C | 雷达标记进度 | 12 个机器人易伤/标记位 (1b each) | 2 |
+| 0x020E | 雷达自主决策同步 | weakness_chance(2b) + active(1b) + encrypt(2b) + modifiable(1b) | 1 |
+| 0x0301 | 机器人交互 | RobotInteractionHeader(6) + user_data(变长, ≤112) | ≤118 |
+| 0x0305 | 小地图雷达数据 | 12 机器人 × [x(u16), y(u16)] | 48 |
+
+### SDR 无线链路 (ZMQ, 待接入)
+
+| cmd_id | 名称 | 字段 | 字节数 |
+|--------|------|------|--------|
+| 0x0A01 | 对方位置 | 6 机器人 × [i16, i16] | 24 |
+| 0x0A02 | 对方血量 | 6 机器人 × u16 | 12 |
+| 0x0A03 | 对方弹药 | 5 机器人 × u16 | 10 |
+| 0x0A04 | 对方宏观状态 | gold(u16×2) + 8 个位域状态 | 8 |
+| 0x0A05 | 对方增益 | 5 机器人 × 7 字段 + 哨兵姿态 | 36 |
+| 0x0A06 | 干扰密钥 | key([u8;6]) | 6 |
+
+### 机器人交互子内容 (0x0301.data_cmd_id)
+
+| 子内容 ID | 名称 | 字节数 |
+|-----------|------|--------|
+| 0x0121 | 雷达自主决策指令 (→0x8080) | 8 |
 
 ## 依赖
 
 - `eframe` / `egui` — 即时模式 GUI
-- `tokio` — 异步 TCP/UDP
-- `libc` — 共享内存 (`shm_open`) 和 FIFO 控制
+- `tokio` — 异步运行时
+- `deku` — 二进制协议序列化 (位域 + 整字节混用)
+- `zmq` — ZeroMQ SUB/PUB 消息订阅
+- `serial2` — 跨平台串口通信
+- `libc` — 共享内存、FIFO
 - `image` — 纹理加载
 - `log` / `env_logger` — 日志
 - `rerun` — 3D 可视化（可选 feature `rerun`）
