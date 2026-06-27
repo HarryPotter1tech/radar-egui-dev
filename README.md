@@ -91,6 +91,27 @@ rerun assets/map.rrd
 - 开局预设：敌方颜色（Red/Blue/Auto）、推流、内录，daemon 启动后通过 FIFO 自动同步
 - 深色模式基于 Catppuccin 风格调色
 
+## ZMQ 双向通信架构（开发中）
+
+串口模块和 ZMQ 互为生产者/消费者，通过 `SerialProtocolData` 的双标志数组解耦：
+
+```text
+串口解析器                     ZMQ PUB 线程
+    │                              │
+    ├─ write field ───────────────┤
+    ├─ serial_produced[idx]=1 ────┤ 读 → JSON → zmq_send → C++/Python
+                                   │
+                                   │
+ZMQ SUB 线程                    串口 TX 线程
+    │                              │
+    ├─ zmq_recv ← C++/Python      │
+    ├─ JSON 解析 → write field     │
+    ├─ zmq_produced[idx]=1 ───────┤ 读 → serial_package → 串口发送
+```
+
+`serial_produced[15]` 和 `zmq_produced[15]` 各 15 个索引位，按 cmd_id 对应 `IDX_GAME_STATE`(0) 到 `IDX_SDR_JAMMING_KEY`(14)。
+SDR TCP 通路后续将逐步被 ZMQ SUB 取代。
+
 ## 数据源
 
 radar-egui 从 `alliance_radar_sdr` 通过 TCP 接收数据：
@@ -136,25 +157,31 @@ src/
 ├── widgets/                         # egui 组件：小地图、面板、Laser 视图
 │
 ├── serial/                          # 串口协议层
-│   ├── data_format.rs               # 14 个协议结构体 + deku 位域注解
-│   ├── serial_parser.rs             # 滑动窗口 cmd_id 扫描 + 12 个 match 分支
+│   ├── data_format.rs               # 15 个协议结构体 + deku 位域注解 + serial_produced/zmq_produced[15]
+│   ├── serial_parser.rs             # 滑动窗口 cmd_id 扫描 + 7 个 match 分支 + 脏标记置位
 │   ├── serial_package.rs            # 组帧发送 (SerialFrame + RobotInteractionData)
-│   ├── serial.rs                    # 串口封装 (try_clone 并发收发)
+│   ├── serial.rs                    # 串口封装 (try_clone 并发收发) + transmitter 消费 zmq_produced
 │   ├── robot_interaction_id.rs      # DeviceId 枚举 (22 变体)
 │   ├── serial_crc.rs                # CRC8/CRC16 校验
 │   └── serialconfig.rs              # 串口配置
 │
-├── zmq/                             # ZMQ 订阅层
-│   ├── sdr_zmq.rs                   # SDR 无线链路 SUB (0x0A01–0x0A06)
-│   ├── laser_zmq.rs                 # Laser 观测数据 SUB
-│   └── location_lidar_zmq.rs        # 位置/雷达 SUB
+├── zmq/                             # ZMQ 进程间通信层 (Rust ↔ C++/Python)
+│   ├── mod.rs                       # 模块声明
+│   ├── zmq.rs                       # PUB/SUB 初始化 + send/recv 封装
+│   ├── data_format.rs               # [TODO] JSON 消息格式定义 (cmd + payload)
+│   ├── zmq_package.rs               # [TODO] JSON 组包 (struct → JSON string)
+│   └── zmq_parser.rs                # [TODO] JSON 解包 (JSON string → struct)
+│
+├── sdr/                             # SDR 无线链路协议 (TCP)
+│   ├── mod.rs
+│   ├── protocol.rs                  # RoboMasterSignalInfo + 二进制解析器
+│   └── client.rs                    # TCP 客户端 (127.0.0.1:2000)
 │
 ├── laser/                           # Laser 协议与视频
+│   ├── mod.rs                       # 模块声明
 │   ├── protocol.rs                  # LaserObservation UDP 解析
-│   └── video.rs                     # 共享内存视频帧读取
-│
-└── radar/                           # Radar 协议
-    └── protocol.rs                  # RoboMasterSignalInfo + 二进制解析器
+│   ├── observer.rs                  # UDP 监听 (0.0.0.0:5001)
+│   └── video.rs                     # 共享内存视频帧读取 (/laser_frame)
 ```
 
 ## 数据包结构
@@ -194,11 +221,13 @@ src/
 - `eframe` / `egui` — 即时模式 GUI
 - `tokio` — 异步运行时
 - `deku` — 二进制协议序列化 (位域 + 整字节混用)
-- `zmq` — ZeroMQ SUB/PUB 消息订阅
+- `zmq2` — ZeroMQ PUB/SUB 进程间通信 (Rust ↔ C++/Python)
+- `serde` / `serde_json` — JSON 序列化 (用于 ZMQ 消息格式)
 - `serial2` — 跨平台串口通信
 - `libc` — 共享内存、FIFO
 - `image` — 纹理加载
 - `log` / `env_logger` — 日志
 - `rerun` — 3D 可视化（可选 feature `rerun`）
+- `gstreamer` — 视频流解码（可选 feature `video`）
 
 MIT
