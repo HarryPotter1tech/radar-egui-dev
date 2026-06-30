@@ -17,12 +17,12 @@
 
 - [x] zmq.rs — PUB/SUB 初始化、zmq_send、zmq_recv 封装
 - [x] serde + serde_json 依赖引入 (Cargo.toml)
-- [ ] zmq/data_format.rs — JSON 消息格式 (cmd + payload)
-- [ ] zmq/zmq_package.rs — JSON 组包 (struct → JSON string)
-- [ ] zmq/zmq_parser.rs — JSON 解包 (JSON string → struct)
-- [ ] ZMQ PUB 线程 — 读取 serial_produced[idx] → JSON → zmq_send
-- [ ] ZMQ SUB 线程 — zmq_recv → JSON 解析 → zmq_produced[idx] = 1
-- [ ] ZMQ 线程连线 runtime/mod.rs
+- [x] zmq/data_format.rs — ZMQMessage + Transmit*/Receive* 结构体
+- [x] zmq/zmq_package.rs — JSON 组包 (SerialProtocolData → String)
+- [x] zmq/zmq_parser.rs — JSON 解包 (JSON bytes → SerialProtocolData)
+- [ ] ZMQ PUB 线程 — 读取 serial_produced[idx] → zmq_package → zmq_send
+- [ ] ZMQ SUB 线程 — zmq_recv → zmq_parser → zmq_produced[idx] = 1
+- [ ] ZMQ 线程连线 runtime/mod.rs + app/mod.rs
 
 ## SDR 无线链路（TCP 将逐步被 ZMQ 取代）
 

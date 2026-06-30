@@ -168,9 +168,10 @@ src/
 ├── zmq/                             # ZMQ 进程间通信层 (Rust ↔ C++/Python)
 │   ├── mod.rs                       # 模块声明
 │   ├── zmq.rs                       # PUB/SUB 初始化 + send/recv 封装
-│   ├── data_format.rs               # [TODO] JSON 消息格式定义 (cmd + payload)
-│   ├── zmq_package.rs               # [TODO] JSON 组包 (struct → JSON string)
-│   └── zmq_parser.rs                # [TODO] JSON 解包 (JSON string → struct)
+│   ├── data_format.rs               # ZMQMessage + Transmit*/Receive* 结构体
+│   ├── zmq_package.rs               # JSON 组包 (SerialProtocolData → JSON string)
+│   ├── zmq_parser.rs                # JSON 解包 (JSON bytes → SerialProtocolData)
+│   └── fusion.rs                    # [TODO] 多源数据融合
 │
 ├── sdr/                             # SDR 无线链路协议 (TCP)
 │   ├── mod.rs
