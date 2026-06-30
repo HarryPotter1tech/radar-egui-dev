@@ -3,7 +3,6 @@ mod laser;
 mod pointcloud;
 mod rerun_visualizer;
 mod runtime;
-// mod sdr; // TODO: replace with ZMQ SUB runtime
 mod serial;
 mod services;
 mod state;

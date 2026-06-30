@@ -20,24 +20,24 @@ impl StatusPanels {
             "血量总览",
             "主战单位与关键建筑生命值",
             |ui| {
-                self.blood_row(ui, "英雄", info.hero_blood, 200, theme::HERO_COLOR);
-                self.blood_row(ui, "工程", info.engineer_blood, 200, theme::ENGINEER_COLOR);
+                self.blood_row(ui, "英雄", info.blood.hero_blood, 200, theme::HERO_COLOR);
+                self.blood_row(ui, "工程", info.blood.engineer_blood, 200, theme::ENGINEER_COLOR);
                 self.blood_row(
                     ui,
                     "步兵1",
-                    info.infantry_3_blood,
+                    info.blood.infantry_3_blood,
                     200,
                     theme::INFANTRY1_COLOR,
                 );
                 self.blood_row(
                     ui,
                     "步兵2",
-                    info.infantry_4_blood,
+                    info.blood.infantry_4_blood,
                     200,
                     theme::INFANTRY2_COLOR,
                 );
-                self.blood_row(ui, "前哨站", info.reserved, 200, theme::TEAL);
-                self.blood_row(ui, "哨兵", info.sentry_blood, 400, theme::SENTINEL_COLOR);
+                self.blood_row(ui, "前哨站", info.blood.reserved, 200, theme::TEAL);
+                self.blood_row(ui, "哨兵", info.blood.sentry_blood, 400, theme::SENTINEL_COLOR);
             },
         );
 
@@ -48,41 +48,41 @@ impl StatusPanels {
                 .num_columns(2)
                 .spacing([12.0, 10.0])
                 .show(ui, |ui| {
-                    self.ammo_row(ui, "英雄", info.hero_ammo, theme::HERO_COLOR);
+                    self.ammo_row(ui, "英雄", info.ammo.hero_ammo, theme::HERO_COLOR);
                     self.ammo_row(
                         ui,
                         "步兵1",
-                        info.infantry_3_ammo,
+                        info.ammo.infantry_3_ammo,
                         theme::INFANTRY1_COLOR,
                     );
                     self.ammo_row(
                         ui,
                         "步兵2",
-                        info.infantry_4_ammo,
+                        info.ammo.infantry_4_ammo,
                         theme::INFANTRY2_COLOR,
                     );
-                    self.ammo_row(ui, "无人机", info.aerial_ammo, theme::DRONE_COLOR);
-                    self.ammo_row(ui, "哨兵", info.sentry_ammo, theme::SENTINEL_COLOR);
+                    self.ammo_row(ui, "无人机", info.ammo.aerial_ammo, theme::DRONE_COLOR);
+                    self.ammo_row(ui, "哨兵", info.ammo.sentry_ammo, theme::SENTINEL_COLOR);
                 });
         });
 
         ui.add_space(14.0);
 
         self.card(ui, "经济", "当前资源 / 已获得资源", |ui| {
-            let econ_ratio = if info.total_gold > 0 {
-                info.remaining_gold as f32 / info.total_gold as f32
+            let econ_ratio = if info.state.total_gold > 0 {
+                info.state.remaining_gold as f32 / info.state.total_gold as f32
             } else {
                 0.0
             };
 
             ui.horizontal(|ui| {
                 ui.label(
-                    RichText::new(format!("{}", info.remaining_gold))
+                    RichText::new(format!("{}", info.state.remaining_gold))
                         .color(theme::text())
                         .size(30.0),
                 );
                 ui.label(
-                    RichText::new(format!("/ {}", info.total_gold))
+                    RichText::new(format!("/ {}", info.state.total_gold))
                         .color(theme::text_muted())
                         .size(18.0),
                 );
@@ -97,7 +97,7 @@ impl StatusPanels {
             ui.horizontal_wrapped(|ui| {
                 let labels = ["A", "B", "C", "D", "E", "F"];
                 for (i, label) in labels.iter().enumerate() {
-                    let active = info.occupation_status[i] != 0;
+                    let active = info.state.occupation_status[i] != 0;
                     let fill = if active {
                         theme::success_bg()
                     } else {
@@ -138,11 +138,11 @@ impl StatusPanels {
                     }
                     ui.end_row();
 
-                    self.gain_row(ui, "英雄", info.hero_hp_recovery, info.hero_cooling_acceleration, info.hero_defence, info.hero_negative_defence, info.hero_attack, theme::HERO_COLOR);
-                    self.gain_row(ui, "工程", info.engineer_hp_recovery, info.engineer_cooling_acceleration, info.engineer_defence, info.engineer_negative_defence, info.engineer_attack, theme::ENGINEER_COLOR);
-                    self.gain_row(ui, "步兵1", info.infantry_3_hp_recovery, info.infantry_3_cooling_acceleration, info.infantry_3_defence, info.infantry_3_negative_defence, info.infantry_3_attack, theme::INFANTRY1_COLOR);
-                    self.gain_row(ui, "步兵2", info.infantry_4_hp_recovery, info.infantry_4_cooling_acceleration, info.infantry_4_defence, info.infantry_4_negative_defence, info.infantry_4_attack, theme::INFANTRY2_COLOR);
-                    self.gain_row(ui, "哨兵", info.sentry_hp_recovery, info.sentry_cooling_acceleration, info.sentry_defence, info.sentry_negative_defence, info.sentry_attack, theme::SENTINEL_COLOR);
+                    self.gain_row(ui, "英雄", info.gain.hero_hp_recovery, info.gain.hero_cooling_acceleration, info.gain.hero_defence, info.gain.hero_negative_defence, info.gain.hero_attack, theme::HERO_COLOR);
+                    self.gain_row(ui, "工程", info.gain.engineer_hp_recovery, info.gain.engineer_cooling_acceleration, info.gain.engineer_defence, info.gain.engineer_negative_defence, info.gain.engineer_attack, theme::ENGINEER_COLOR);
+                    self.gain_row(ui, "步兵1", info.gain.infantry_3_hp_recovery, info.gain.infantry_3_cooling_acceleration, info.gain.infantry_3_defence, info.gain.infantry_3_negative_defence, info.gain.infantry_3_attack, theme::INFANTRY1_COLOR);
+                    self.gain_row(ui, "步兵2", info.gain.infantry_4_hp_recovery, info.gain.infantry_4_cooling_acceleration, info.gain.infantry_4_defence, info.gain.infantry_4_negative_defence, info.gain.infantry_4_attack, theme::INFANTRY2_COLOR);
+                    self.gain_row(ui, "哨兵", info.gain.sentry_hp_recovery, info.gain.sentry_cooling_acceleration, info.gain.sentry_defence, info.gain.sentry_negative_defence, info.gain.sentry_attack, theme::SENTINEL_COLOR);
                 });
 
             ui.add_space(10.0);
@@ -153,7 +153,7 @@ impl StatusPanels {
                         .size(14.0),
                 );
                 ui.label(
-                    RichText::new(info.sentry_posture.to_string())
+                    RichText::new(info.gain.sentry_posture.to_string())
                         .color(theme::text())
                         .size(18.0),
                 );

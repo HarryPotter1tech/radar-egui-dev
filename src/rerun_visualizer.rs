@@ -52,12 +52,12 @@ impl RerunVisualizer {
         #[cfg(feature = "rerun")]
         if let Some(rec) = self.ensure_connected() {
             let robots: &[(&str, [i16; 2])] = &[
-                ("hero", [_info.hero_x, _info.hero_y]),
-                ("engineer", [_info.engineer_x, _info.engineer_y]),
-                ("infantry1", [_info.infantry_3_x, _info.infantry_3_y]),
-                ("infantry2", [_info.infantry_4_x, _info.infantry_4_y]),
-                ("drone", [_info.aerial_x, _info.aerial_y]),
-                ("sentinel", [_info.sentry_x, _info.sentry_y]),
+                ("hero", [_info.position.hero_x, _info.position.hero_y]),
+                ("engineer", [_info.position.engineer_x, _info.position.engineer_y]),
+                ("infantry1", [_info.position.infantry_3_x, _info.position.infantry_3_y]),
+                ("infantry2", [_info.position.infantry_4_x, _info.position.infantry_4_y]),
+                ("drone", [_info.position.aerial_x, _info.position.aerial_y]),
+                ("sentinel", [_info.position.sentry_x, _info.position.sentry_y]),
             ];
 
             for (name, pos) in robots {
@@ -76,12 +76,12 @@ impl RerunVisualizer {
         #[cfg(feature = "rerun")]
         if let Some(rec) = self.ensure_connected() {
             let blood_data = [
-                ("hero", _info.hero_blood),
-                ("engineer", _info.engineer_blood),
-                ("infantry1", _info.infantry_3_blood),
-                ("infantry2", _info.infantry_4_blood),
-                ("saven", _info.reserved),
-                ("sentinel", _info.sentry_blood),
+                ("hero", _info.blood.hero_blood),
+                ("engineer", _info.blood.engineer_blood),
+                ("infantry1", _info.blood.infantry_3_blood),
+                ("infantry2", _info.blood.infantry_4_blood),
+                ("saven", _info.blood.reserved),
+                ("sentinel", _info.blood.sentry_blood),
             ];
 
             for (name, blood) in blood_data {
@@ -96,11 +96,11 @@ impl RerunVisualizer {
         if let Some(rec) = self.ensure_connected() {
             let _ = rec.log(
                 "world/stats/economy/remain",
-                &rr::Scalars::new([_info.remaining_gold as f64]),
+                &rr::Scalars::new([_info.state.remaining_gold as f64]),
             );
             let _ = rec.log(
                 "world/stats/economy/total",
-                &rr::Scalars::new([_info.total_gold as f64]),
+                &rr::Scalars::new([_info.state.total_gold as f64]),
             );
         }
     }

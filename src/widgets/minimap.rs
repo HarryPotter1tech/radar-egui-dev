@@ -82,12 +82,12 @@ impl MinimapWidget {
         let scale = world_rect.width().min(world_rect.height()) * 0.43 / 3000.0;
 
         let robots: &[(&str, [i16; 2], egui::Color32)] = &[
-            ("英雄", [info.hero_x, info.hero_y], theme::HERO_COLOR),
-            ("工程", [info.engineer_x, info.engineer_y], theme::ENGINEER_COLOR),
-            ("步兵1", [info.infantry_3_x, info.infantry_3_y], theme::INFANTRY1_COLOR),
-            ("步兵2", [info.infantry_4_x, info.infantry_4_y], theme::INFANTRY2_COLOR),
-            ("无人机", [info.aerial_x, info.aerial_y], theme::DRONE_COLOR),
-            ("哨兵", [info.sentry_x, info.sentry_y], theme::SENTINEL_COLOR),
+            ("英雄", [info.position.hero_x, info.position.hero_y], theme::HERO_COLOR),
+            ("工程", [info.position.engineer_x, info.position.engineer_y], theme::ENGINEER_COLOR),
+            ("步兵1", [info.position.infantry_3_x, info.position.infantry_3_y], theme::INFANTRY1_COLOR),
+            ("步兵2", [info.position.infantry_4_x, info.position.infantry_4_y], theme::INFANTRY2_COLOR),
+            ("无人机", [info.position.aerial_x, info.position.aerial_y], theme::DRONE_COLOR),
+            ("哨兵", [info.position.sentry_x, info.position.sentry_y], theme::SENTINEL_COLOR),
         ];
 
         for &(name, pos, color) in robots {
