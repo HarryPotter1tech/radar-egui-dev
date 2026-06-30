@@ -173,10 +173,7 @@ src/
 │   ├── zmq_parser.rs                # JSON 解包 (JSON bytes → SerialProtocolData)
 │   └── fusion.rs                    # [TODO] 多源数据融合
 │
-├── sdr/                             # SDR 无线链路协议 (TCP)
-│   ├── mod.rs
-│   ├── protocol.rs                  # RoboMasterSignalInfo + 二进制解析器
-│   └── client.rs                    # TCP 客户端 (127.0.0.1:2000)
+├── sdr/                             # [REMOVED] 已删除，ZMQ 替换中
 │
 ├── laser/                           # Laser 协议与视频
 │   ├── mod.rs                       # 模块声明

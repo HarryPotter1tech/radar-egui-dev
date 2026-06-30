@@ -24,11 +24,19 @@
 - [ ] ZMQ SUB 线程 — zmq_recv → zmq_parser → zmq_produced[idx] = 1
 - [ ] ZMQ 线程连线 runtime/mod.rs + app/mod.rs
 
-## SDR 无线链路（TCP 将逐步被 ZMQ 取代）
+## SDR 无线链路（TCP → ZMQ 替换中）
 
 - [x] SDR TCP 客户端 (127.0.0.1:2000) — parse_signal 滑动窗口解析
 - [x] RoboMasterSignalInfo → RadarFeedWriter → egui 状态面板
-- [ ] ZMQ 取代 SDR TCP 数据通路
+- [x] `src/sdr/` 目录已删除，等待 ZMQ 替换
+- [ ] ZMQ 接入替代 SDR TCP（ZMQ SUB → ReceiveSdr → 写共享状态）
+- [ ] 修复受影响的 6 个文件：
+  - [ ] `src/main.rs` — 恢复 `mod sdr;` 或改为 ZMQ
+  - [ ] `src/runtime/mod.rs` — `RadarRuntime` → `ZmqRuntime`
+  - [ ] `src/state.rs` — `RadarFeed*` → ZMQ 版共享状态
+  - [ ] `src/app/mod.rs` — `RadarFeedReader` → ZMQ 读取
+  - [ ] `src/rerun_visualizer.rs` — `RoboMasterSignalInfo` → `ReceiveSdr`
+  - [ ] `src/widgets/minimap.rs`, `panels.rs` — `RoboMasterSignalInfo` → `ReceiveSdr`
 
 ## 可视化 (egui)
 
