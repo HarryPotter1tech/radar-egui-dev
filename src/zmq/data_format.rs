@@ -181,3 +181,13 @@ pub struct ReceiveLaser {
     pub contour: Vec<[f32; 2]>,
     pub candidates: Vec<ReceiveModelCandidate>,
 }
+
+// ── ZMQ shared state (equivalent to serial::SerialProtocolData) ──
+
+/// Aggregates all ZMQ received data. Analogous to `serial::SerialProtocolData`.
+#[derive(Debug, Clone, Default)]
+pub struct ZmqData {
+    pub sdr: ReceiveSdr,
+    pub laser: ReceiveLaser,
+    pub lidar: ReceiveLidarLocation,
+}
