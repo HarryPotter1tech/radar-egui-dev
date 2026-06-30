@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ZMQMessage {
+    pub cmd_id: u16,
+}
 // ── PUB transmit (Rust → ZMQ → C++/Python) ──
 
 /// Game state broadcast (cmd 0x0001)
